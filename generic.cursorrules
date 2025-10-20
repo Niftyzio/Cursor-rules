@@ -1,0 +1,485 @@
+# AI-Assisted Development Guidelines (Generic)
+# Copy this to your project root as .cursorrules
+# Edit to match your app's specific folder structure
+
+## Core Principles
+This project is built with AI assistance. These rules ensure consistent, maintainable code across all contributions.
+
+---
+
+## ARCHITECTURE RULES
+
+### 1. Folder Organization
+Code is organized by **business feature**, not technical layer:
+
+```
+src/
+├── pages/              # Full page components (one per route)
+├── components/         # Reusable UI components
+│   ├── features/      # Feature-specific components (rename as needed)
+│   └── ui/            # Base UI components (shadcn/ui)
+├── hooks/             # Custom React hooks (business logic only)
+├── services/          # Non-React utilities and helpers
+├── types/             # TypeScript type definitions
+├── contexts/          # React Context for global state
+└── App.tsx            # Main app component
+```
+
+**Customize as needed for your app:**
+- Blog: `components/posts/`, `hooks/usePosts.ts`, `services/postService.ts`
+- Store: `components/products/`, `hooks/useProducts.ts`, `services/productService.ts`
+- Todo: `components/todos/`, `hooks/useTodos.ts`, `services/todoService.ts`
+- Social: `components/posts/`, `hooks/usePosts.ts`, `services/postService.ts`
+
+### 2. Layer Responsibilities
+
+**Pages (src/pages/)**
+- One component per route
+- Orchestrates child components
+- Calls hooks to fetch data
+- Provides data to components
+
+**Components (src/components/)**
+- Renders JSX ONLY
+- No business logic
+- No Supabase calls
+- No data fetching
+- Receives data via props
+- Emits events via callbacks
+- Keep under 150 lines
+
+**Hooks (src/hooks/)**
+- Manages state and side effects
+- Fetches data via services
+- Returns { data, loading, error }
+- Never calls components
+- Never imports UI components
+- Keep under 100 lines
+- ALWAYS starts with "use" prefix
+
+**Services (src/services/)**
+- Wraps Supabase calls
+- Contains utilities and calculations
+- No React imports
+- Export plain functions
+- Handle all error checking
+
+**Types (src/types/)**
+- All TypeScript definitions
+- Organized by feature
+- Include documentation
+- Export all shared types
+
+**Contexts (src/contexts/)**
+- Global state ONLY (auth, user, settings)
+- Max 3-4 contexts total
+- No feature-specific data
+- Provide custom hooks to access (e.g., useAuth)
+
+---
+
+## NAMING CONVENTIONS
+
+### Components
+- PascalCase: `Item.tsx`, `Post.tsx`, `Product.tsx` (rename for your domain)
+- Descriptive name matching purpose
+- One component per file
+
+### Hooks
+- camelCase starting with "use": `useItems.ts`, `usePosts.ts`, `useProducts.ts`
+- Describe what data/logic they manage
+- One hook per file
+
+### Services
+- camelCase: `itemService.ts`, `postService.ts`, `productService.ts`
+- Descriptive of domain
+- Can have multiple functions in one file
+
+### Types/Interfaces
+- PascalCase: `Item.types.ts`, `Post.types.ts`, `Product.types.ts`
+- Descriptive of data model
+- Export all types from one file per domain
+
+### Variables & Functions
+- camelCase: `getItems()`, `itemName`
+- Descriptive of content
+- Constants in UPPER_SNAKE_CASE: `MAX_RETRIES = 3`
+
+---
+
+## REACT COMPONENT GUIDELINES
+
+### Component Structure
+```typescript
+import { useEffect, useState } from 'react';
+import type { ItemProps } from '@/types/Item.types';
+import { useItems } from '@/hooks/useItems';
+import { ChildComponent } from '@/components/ChildComponent';
+
+interface MyComponentProps {
+  title: string;
+  count: number;
+  onAction: (id: string) => void;
+}
+
+export function MyComponent({ title, count, onAction }: MyComponentProps) {
+  const [localState, setLocalState] = useState(false);
+
+  const handleClick = () => {
+    setLocalState(!localState);
+    onAction('id');
+  };
+
+  return (
+    <div className="flex gap-4">
+      <h1>{title}</h1>
+      <button onClick={handleClick}>Click me</button>
+      <ChildComponent data={count} />
+    </div>
+  );
+}
+```
+
+### Rules
+- ✅ Always define props interface
+- ✅ Keep components small (50-150 lines max)
+- ✅ Use destructuring for props
+- ✅ Extract complex logic to hooks
+- ✅ Use TypeScript types everywhere
+- ❌ Never call Supabase directly
+- ❌ Never put business logic in components
+- ❌ Never import hooks in other hooks
+- ❌ Never use `any` type
+
+---
+
+## CUSTOM HOOKS GUIDELINES
+
+### Hook Structure
+```typescript
+import { useEffect, useState } from 'react';
+import type { Item } from '@/types/Item.types';
+import { itemService } from '@/services/itemService';
+
+interface UseItemsReturn {
+  items: Item[] | null;
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Fetches items from the database
+ * @returns Object with items, loading, error, and refetch function
+ */
+export function useItems(): UseItemsReturn {
+  const [items, setItems] = useState<Item[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchItems = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await itemService.getItems();
+      setItems(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  return { items, loading, error, refetch: fetchItems };
+}
+```
+
+### Rules
+- ✅ Always return { data, loading, error }
+- ✅ Always include refetch function
+- ✅ Always handle errors
+- ✅ Add JSDoc comments
+- ✅ Keep under 100 lines
+- ✅ Use TypeScript for return type
+- ❌ Never import components
+- ❌ Never import other hooks
+- ❌ Never call Supabase directly (use services)
+
+---
+
+## SERVICE LAYER GUIDELINES
+
+### Service Structure
+```typescript
+import { supabase } from '@/lib/supabase';
+import type { Item } from '@/types/Item.types';
+
+export const itemService = {
+  async getItems(): Promise<Item[]> {
+    const { data, error } = await supabase
+      .from('items')
+      .select('*');
+    
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+
+  async createItem(item: Omit<Item, 'id' | 'created_at'>): Promise<Item> {
+    const { data, error } = await supabase
+      .from('items')
+      .insert([item])
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data;
+  },
+};
+```
+
+### Rules
+- ✅ Export object with named functions
+- ✅ Always handle Supabase errors
+- ✅ Always use typed return values
+- ✅ All Supabase calls go here
+- ❌ No React imports
+- ❌ No component imports
+- ❌ No logic that belongs in hooks
+
+---
+
+## TYPE SAFETY RULES
+
+### Always Define Types
+```typescript
+// ❌ WRONG
+function getData(data: any): any {
+  return data.value;
+}
+
+// ✅ CORRECT
+interface DataInput {
+  value: string;
+  count: number;
+}
+
+interface DataOutput {
+  result: string;
+}
+
+function getData(data: DataInput): DataOutput {
+  return { result: data.value };
+}
+```
+
+### Rules
+- ✅ Every parameter has a type
+- ✅ Every return value has a type
+- ✅ Every prop has an interface
+- ✅ Never use `any`
+- ✅ Use `unknown` if truly unknown
+- ✅ Export types for reuse
+
+---
+
+## ERROR HANDLING RULES
+
+### Always Handle Errors
+```typescript
+// ❌ WRONG - No error handling
+const [data, setData] = useState();
+useEffect(() => {
+  supabase.from('table').select().then(data => setData(data));
+}, []);
+
+// ✅ CORRECT - Full error handling
+const [data, setData] = useState(null);
+const [error, setError] = useState(null);
+
+useEffect(() => {
+  const fetch = async () => {
+    try {
+      const result = await itemService.getItems();
+      setData(result);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  fetch();
+}, []);
+```
+
+### Rules
+- ✅ Try/catch in all async operations
+- ✅ Return error state from hooks
+- ✅ Show user-friendly messages
+- ✅ Log errors for debugging
+- ✅ Never silently fail
+
+---
+
+## IMPORT ORGANIZATION
+
+### Import Order
+```typescript
+// 1. React and external libraries
+import { useEffect, useState } from 'react';
+
+// 2. Types
+import type { Item } from '@/types/Item.types';
+
+// 3. Hooks
+import { useItems } from '@/hooks/useItems';
+
+// 4. Services
+import { itemService } from '@/services/itemService';
+
+// 5. Components
+import { ItemCard } from '@/components/ItemCard';
+
+// 6. UI components
+import { Button } from '@/components/ui/button';
+```
+
+### Rules
+- ✅ Use absolute imports (@/...)
+- ✅ Never use relative imports (../../../)
+- ✅ Group by category
+- ✅ Use `type` keyword for types
+- ✅ Organize alphabetically within groups
+
+---
+
+## CODE STYLE RULES
+
+### General
+- Use `const` by default, `let` if reassigned, never `var`
+- Use arrow functions: `() => {}`
+- Use template literals: `` `Hello ${name}` ``
+- Use object destructuring: `{ name, email } = user`
+- Use array destructuring: `const [count, setCount] = useState(0)`
+
+### React Specific
+- Use functional components only
+- Use hooks for state management
+- Use React.memo for expensive components
+- Use useCallback for stable function references
+- Never use inline functions in JSX (unless simple handler)
+
+### TypeScript Specific
+- Use `interface` for object shapes
+- Use `type` for unions and primitives
+- Use `satisfies` for type safety without casting
+- Always add return types to functions
+- Use `Omit` and `Pick` for derived types
+
+---
+
+## FILE SIZE LIMITS
+
+Keep files small and focused:
+- Components: 50-150 lines max
+- Hooks: 30-100 lines max
+- Services: 50-200 lines max
+- Pages: 100-300 lines max (they orchestrate)
+
+If file exceeds limit → split into smaller pieces
+
+---
+
+## TESTING GUIDELINES
+
+When writing tests:
+- Test hooks independently
+- Mock services
+- Don't mock components unless necessary
+- Test user interactions, not implementation
+- Use `screen.getByRole()` not `querySelector()`
+
+---
+
+## PERFORMANCE RULES
+
+- Use `React.memo()` for expensive components
+- Use `useCallback()` for stable callbacks
+- Use `useMemo()` only for expensive calculations
+- Don't fetch in useEffect without dependencies
+- Don't create objects/arrays in render
+
+---
+
+## ANTI-PATTERNS TO AVOID
+
+❌ Logic in components
+❌ Hooks calling hooks
+❌ Multiple contexts (max 3-4)
+❌ Using `any` type
+❌ Direct Supabase calls in components
+❌ Large files (>200 lines)
+❌ Silent error handling
+❌ Relative imports
+❌ Inline complex logic
+❌ Passing unnecessary props
+
+---
+
+## CHECKLIST BEFORE COMMITTING
+
+- [ ] All components are under 150 lines
+- [ ] All hooks are under 100 lines
+- [ ] No Supabase calls in components
+- [ ] All error cases handled
+- [ ] All types are defined
+- [ ] No `any` types
+- [ ] Props interfaces defined
+- [ ] No console.log statements
+- [ ] Imports organized correctly
+- [ ] File names follow conventions
+- [ ] Updated relevant .md files
+
+---
+
+## PROMPT TEMPLATE FOR AI ASSISTANT
+
+When asking Cursor to build features, use this template:
+
+```
+I want to add [FEATURE]. Here are the requirements:
+
+## Requirements
+- [Req 1]
+- [Req 2]
+
+## Tech Details
+- Component: src/components/features/[Feature].tsx
+- Hook: src/hooks/use[Features].ts
+- Service: src/services/[feature]Service.ts
+- Types: src/types/[Feature].types.ts
+
+## Steps
+1. Create types in src/types/[Feature].types.ts
+2. Create service in src/services/[feature]Service.ts
+3. Create hook in src/hooks/use[Features].ts
+4. Create component in src/components/features/[Feature].tsx
+5. Add to page in src/pages/
+
+Follow our ARCHITECTURE.md and .cursorrules guidelines.
+```
+
+---
+
+## Questions?
+
+See ARCHITECTURE.md for detailed explanations.
+See GENERIC-BOILERPLATE-README.md for generic patterns.
+See ADAPTATION-GUIDE.md for your specific app type.
+When in doubt, ask the AI: "Is this following .cursorrules?"
+
+---
+
+Last Updated: January 2025
+**Note: Customize folder structure for your specific app type (see ADAPTATION-GUIDE.md)**

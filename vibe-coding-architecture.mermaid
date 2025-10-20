@@ -1,0 +1,149 @@
+graph TB
+    subgraph DevEnv["🖥️ DEVELOPMENT ENVIRONMENT"]
+        Cursor["🎯 Cursor IDE<br/>with Cursor Rules<br/>(guidelines.md)"]
+        Git["📦 Git/GitHub<br/>(version control)"]
+        Terminal["⌨️ Terminal<br/>npm/pnpm"]
+    end
+
+    subgraph FrontendArchitecture["⚛️ FRONTEND ARCHITECTURE (React + TypeScript + Vite)"]
+        subgraph ProjectRoot["📁 Project Root"]
+            Docs["📚 Documentation<br/>├── README.md<br/>├── ARCHITECTURE.md<br/>├── guidelines.md<br/>└── .cursorrules"]
+            Config["⚙️ Configuration<br/>├── vite.config.ts<br/>├── tsconfig.json<br/>├── eslint.config.js<br/>└── tailwind.config.ts"]
+        end
+
+        subgraph SrcFolder["📂 src/"]
+            subgraph Pages["📄 pages/<br/>(Full page components)"]
+                StudentPortal["StudentPortal.tsx"]
+                TrainerDashboard["TrainerDashboard.tsx"]
+                AdminPanel["AdminPanel.tsx"]
+            end
+
+            subgraph Components["🧩 components/<br/>(Reusable UI)"]
+                StudentComps["student/<br/>├── PRDGenerator<br/>├── CourseProgress<br/>└── VideoPlayer"]
+                TrainerComps["trainer/<br/>├── SessionsTable<br/>├── StudentsList<br/>└── CertificateModal"]
+                AdminComps["admin/<br/>├── AnalyticsDashboard<br/>├── UserManagement<br/>└── InvoicesTable"]
+                UIComps["ui/ (shadcn)<br/>├── button.tsx<br/>├── input.tsx<br/>├── modal.tsx<br/>└── card.tsx"]
+            end
+
+            subgraph ServiceLayer["🪝 SERVICE LAYER"]
+                subgraph Hooks["hooks/<br/>(Business Logic)"]
+                    StudentHooks["student/<br/>├── useStudentData<br/>├── usePRDGeneration<br/>└── useSessionAccess"]
+                    TrainerHooks["trainer/<br/>├── useTrainerSessions<br/>├── useBilling<br/>└── useCertification"]
+                    AdminHooks["admin/<br/>├── useAnalytics<br/>├── useUserManagement<br/>└── useReporting"]
+                end
+
+                subgraph Services["services/<br/>(Utilities)"]
+                    AuthService["authService.ts<br/>(login, logout,<br/>JWT refresh)"]
+                    ApiService["apiService.ts<br/>(centralized API<br/>calls)"]
+                    UtilService["utils/<br/>├── formatDate.ts<br/>├── validateEmail.ts<br/>└── calculateMetrics.ts"]
+                end
+            end
+
+            subgraph Types["📋 types/<br/>(TypeScript)"]
+                Database["database.types.ts<br/>(auto-generated)"]
+                Custom["custom.types.ts<br/>(app-specific types)"]
+            end
+
+            subgraph State["🔄 State Management"]
+                Context["contexts/<br/>├── AuthContext.tsx<br/>├── UserContext.tsx<br/>└── AppContext.tsx"]
+                Store["stores/ (optional)<br/>├── userStore.ts<br/>└── sessionStore.ts"]
+            end
+
+            Main["main.tsx<br/>(Entry point)"]
+            App["App.tsx<br/>(Router + providers)"]
+        end
+    end
+
+    subgraph BuildProcess["🔨 BUILD & DEPLOYMENT"]
+        Vite["Vite<br/>(Fast bundler)"]
+        TypeCheck["TypeScript<br/>(Type checking)"]
+        Lint["ESLint<br/>(Code quality)"]
+        Build["npm run build<br/>(Generates dist/)"]
+        Deploy["Vercel/Netlify<br/>(Static hosting)"]
+    end
+
+    subgraph Backend["🗄️ BACKEND (Supabase)"]
+        Auth["🔐 Authentication<br/>├── Email/Password<br/>├── OAuth<br/>└── JWT tokens"]
+        
+        subgraph EdgeFunctions["⚡ Edge Functions<br/>(Deno runtime)"]
+            GeneratePRD["generate-prd.ts<br/>(OpenAI integration)"]
+            GenerateFrontend["generate-frontend.ts<br/>(V0 integration)"]
+            ProcessPayment["process-payment.ts<br/>(Stripe integration)"]
+        end
+
+        RLS["🔒 Row Level Security<br/>├── Student RLS<br/>├── Trainer RLS<br/>└── Admin RLS"]
+        
+        subgraph Database["🗃️ PostgreSQL Database"]
+            AuthTables["Auth Tables<br/>├── auth.users<br/>├── profiles<br/>└── user_roles"]
+            DataTables["Data Tables<br/>├── students<br/>├── trainers<br/>├── sessions<br/>└── posts"]
+            LogTables["Log Tables<br/>├── prd_access_log<br/>├── audit_log<br/>└── rate_limits"]
+        end
+    end
+
+    subgraph ExternalServices["🌐 EXTERNAL SERVICES"]
+        OpenAI["🤖 OpenAI API<br/>(GPT-4o-mini)"]
+        V0["🎨 V0.dev SDK<br/>(Frontend generation)"]
+        Stripe["💳 Stripe<br/>(Payments)"]
+        SendGrid["📧 SendGrid<br/>(Email)"]
+        Analytics["📊 Google Analytics<br/>(Tracking)"]
+    end
+
+    subgraph EnvVars["🔑 ENVIRONMENT VARIABLES"]
+        FrontendEnv["Frontend (.env.local)<br/>VITE_SUPABASE_URL<br/>VITE_SUPABASE_ANON_KEY"]
+        BackendEnv["Backend (Edge Functions)<br/>OPENAI_API_KEY<br/>V0_API_KEY<br/>STRIPE_SECRET_KEY"]
+    end
+
+    %% Connections
+    Cursor -->|writes code following| Docs
+    Cursor -->|edits| SrcFolder
+    Git -->|version control| ProjectRoot
+    Terminal -->|runs dev/build| Vite
+    
+    Main -->|imports| App
+    App -->|renders| Pages
+    Pages -->|use| Components
+    Components -->|call| Hooks
+    Hooks -->|query via| Services
+    Services -->|access| Types
+    App -->|provides| State
+    State -->|consumed by| Components
+    
+    Vite -->|bundles| TypeCheck
+    TypeCheck -->|validates| Lint
+    Lint -->|passes to| Build
+    Build -->|outputs dist/| Deploy
+    Deploy -->|hosts on CDN| DevEnv
+    
+    Services -->|makes requests to| Backend
+    Hooks -->|authenticates via| Auth
+    
+    Auth -->|validates| RLS
+    RLS -->|protects| Database
+    
+    Services -->|calls| EdgeFunctions
+    EdgeFunctions -->|integrates with| ExternalServices
+    
+    OpenAI -->|powers| GeneratePRD
+    V0 -->|powers| GenerateFrontend
+    Stripe -->|powers| ProcessPayment
+    SendGrid -->|sends| Auth
+    Analytics -->|tracks| Components
+    
+    EdgeFunctions -->|reads/writes| Database
+    Components -->|displays data from| Database
+    
+    BackendEnv -->|secrets for| EdgeFunctions
+    FrontendEnv -->|environment| SrcFolder
+
+    %% Styling
+    classDef development fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
+    classDef frontend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef backend fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef external fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
+    classDef config fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
+    
+    class DevEnv development
+    class FrontendArchitecture,Pages,Components,ServiceLayer,Types,State,BuildProcess frontend
+    class Backend,Auth,EdgeFunctions,Database,RLS backend
+    class ExternalServices,Stripe,OpenAI,V0,SendGrid,Analytics external
+    class ProjectRoot,Docs,Config,EnvVars config
